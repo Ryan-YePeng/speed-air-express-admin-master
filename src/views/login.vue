@@ -93,7 +93,6 @@
                   this.isLoading = false
                 })
           } else {
-            this.$errorMsg('请输入正确信息！');
             return false;
           }
         });

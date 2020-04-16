@@ -41,6 +41,9 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-form-item label="运费:">
+          <el-input v-model="form.o_freight"></el-input>
+        </el-form-item>
         <el-row>
           <el-col :span="16">
             <el-form-item label="状态:" prop="l_log_state">
@@ -127,6 +130,7 @@
   import {editMoreOrderApi, getIdByOrderHadEditedApi, cutOrder} from '@/api/order'
   import {isEmpty} from "@/utils/common";
   import {searchSiteApi} from "@/api/site";
+  import {load_sound} from "@/utils/sound_tips";
 
   export default {
     name: "EditOrderMore",
@@ -194,7 +198,9 @@
           l_log_username: '', // 下一网点编号
 
           o_weight: '', // 体积
-          o_volume: '' // 重量
+          o_volume: '', // 重量
+
+          o_freight: '' // 运费
         },
         rules: {
           l_log_state: {required: true, message: '请选择状态', trigger: 'change'}
@@ -238,6 +244,11 @@
       },
       height: function () {
         this.calculate()
+      },
+      'dynamicValidateForm.orders'(value) {
+        if (value[value.length - 1] === '\n') {
+          load_sound();
+        }
       }
     },
     methods: {

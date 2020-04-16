@@ -1,17 +1,25 @@
 <template>
-  <el-card class="box-card">
+  <el-card
+      class="box-card add-order"
+      v-loading="isGetIdLoading"
+      element-loading-text="检测订单中，请稍后..."
+  >
     <div slot="header" class="clearfix">
       <span>新增订单</span>
     </div>
     <div>
-      <el-form :model="form" :rules="rules" ref="Form" label-width="140px" size="small">
+      <el-form :model="dynamicValidateForm" :rules="dynamicValidateRules" ref="dynamicValidateForm" label-width="140px"
+               size="small">
         <el-row>
-          <el-col :span="16">
-            <el-form-item label="单号:" prop="o_id">
-              <el-input v-model="form.o_id" length="13"></el-input>
+          <el-col :span="12">
+            <el-form-item label="单号:" prop="orders">
+              <el-input type="textarea" v-model="dynamicValidateForm.orders" length="13"></el-input>
             </el-form-item>
           </el-col>
         </el-row>
+      </el-form>
+
+      <el-form :model="form" :rules="rules" ref="Form" label-width="140px" size="small">
         <el-row>
           <el-col :span="16">
             <el-form-item label="寄件人姓名:" prop="c_o_startName">
@@ -161,10 +169,10 @@
             <el-form-item label="快递员:">
               <el-select v-model="form.c_log_member" placeholder="请选择快递员" clearable @change="selectCourier">
                 <el-option
-                        v-for="item in courierList"
-                        :key="item.l_co_id"
-                        :label="item.c_co_name"
-                        :value="item.c_co_name">
+                    v-for="item in courierList"
+                    :key="item.l_co_id"
+                    :label="item.c_co_name"
+                    :value="item.c_co_name">
                   <span style="float: left">{{ item.c_co_name }}</span>
                 </el-option>
               </el-select>
@@ -182,20 +190,20 @@
           <el-col :span="12">
             <el-form-item label="发往网点:" prop="c_problem">
               <el-select
-                      v-model="form.c_problem"
-                      placeholder="请输入网点名称"
-                      clearable
-                      filterable
-                      remote
-                      reserve-keyword
-                      :remote-method="remoteMethod"
-                      :loading="searchLoading"
-                      @change="siteNameSelected">
+                  v-model="form.c_problem"
+                  placeholder="请输入网点名称"
+                  clearable
+                  filterable
+                  remote
+                  reserve-keyword
+                  :remote-method="remoteMethod"
+                  :loading="searchLoading"
+                  @change="siteNameSelected">
                 <el-option
-                        v-for="item in siteNameOptions"
-                        :key="item.label"
-                        :label="item.label"
-                        :value="item.value">
+                    v-for="item in siteNameOptions"
+                    :key="item.label"
+                    :label="item.label"
+                    :value="item.value">
                   <span style="float: left">{{ item.c__branchesName }}</span>
                 </el-option>
               </el-select>
@@ -220,26 +228,25 @@
   import {getCourierApi} from "@/api/courier";
   import {isEmpty} from "@/utils/common";
   import {searchSiteApi} from "@/api/site";
+  import {load_sound} from "@/utils/sound_tips";
 
   export default {
     name: "AddOrder",
     data() {
       let validateOrder = (rule, value, callback) => {
         value = value.trim();
-        let param = `l_o_orderNumber=${value}&u_id=${this.userId}&role=${this.role}`;
-        if (value.length !== 12) {
-          callback(new Error('请输入长度为12的单号'));
-          return
+        if (value === '' || value === undefined || value == null) {
+          callback(new Error('请输入单号'))
+        } else {
+          let list = [];
+          value = value.split('\n');
+          value.forEach(item => {
+            item = item.trim();
+            if (item !== '') list.push(item)
+          });
+          this.getId(list);
+          callback()
         }
-        getIdByOrderApi(param).then(result => {
-          let message = result.data.message;
-          if (message === 0) {
-            callback(new Error('此订单号不可使用,请更换一个订单号'))
-          } else {
-            this.orderId = message;
-            callback()
-          }
-        });
       };
       return {
         orderId: null,
@@ -248,8 +255,14 @@
         length: 0,
         width: 0,
         height: 0,
+        /* 检测单号 */
+        orderList: [],
+        orderListLength: 0,
+        times: 0,
+        ids: [],
+        isGetIdLoading: false,
+        /**/
         form: {
-          o_id: null,
           l_id: null, // 创建人id
 
           c_o_startName: '', // 寄件人姓名
@@ -320,6 +333,14 @@
           c_log_username: '', // 下一网点编号
           l_log_username: '', // 下一网点编号
         },
+        dynamicValidateForm: {
+          orders: ''
+        },
+        dynamicValidateRules: {
+          orders: [
+            {validator: validateOrder, trigger: 'blur'},
+          ]
+        },
         rules: {
           o_id: [
             {required: true, message: '请输入单号', trigger: 'blur'},
@@ -368,6 +389,11 @@
       },
       height: function () {
         this.calculate()
+      },
+      'dynamicValidateForm.orders'(value) {
+        if (value[value.length - 1] === '\n') {
+          load_sound();
+        }
       }
     },
     computed: {
@@ -409,6 +435,35 @@
       });
     },
     methods: {
+      /* 查询单号是否可用 */
+      getId(value) {
+        this.orderList = value;
+        this.orderListLength = value.length;
+        this.times = 0;
+        this.ids = [];
+        this.get();
+        this.isGetIdLoading = true
+      },
+
+      get() {
+        let number = this.orderList[this.times];
+        let param = `l_o_orderNumber=${number}&u_id=${this.userId}&role=${this.role}`;
+        getIdByOrderApi(param).then(result => {
+          if (result.data.message !== 0) {
+            this.ids.push(number);
+          } else {
+            this.$errorMsg('单号:' + number + '不可使用,请更换一个订单号')
+          }
+          this.times++;
+          if (this.times < this.orderListLength) {
+            this.get()
+          } else {
+            this.isGetIdLoading = false
+          }
+        })
+      },
+      /**/
+
       /* 模糊搜索网点 */
       siteNameSelected() {
         let name = this.form.c_problem;
@@ -482,9 +537,13 @@
           if (valid) {
             this.$msgBox('请确认提交').then(() => {
               let data = {...this.form};
-              data.o_id = this.orderId;
               data.l_id = this.userId;
               data.i = 0;
+              data.string = this.ids.join(',');
+              if (this.ids.length === 0) {
+                this.$errorMsg('无法提交，请输入有效单号');
+                return
+              }
               editOrderApi(data).then(() => {
                 this.cancel();
               });
@@ -501,6 +560,8 @@
         this.width = 0;
         this.height = 0;
         this.$refs['Form'].resetFields();
+        this.dynamicValidateForm.orders = '';
+        this.$refs['dynamicValidateForm'].resetFields();
         this.form.c_log_branches = this.user.c__branchesName;
         this.form.c_o_provenance = this.user.c_br_address;
       }
@@ -508,6 +569,10 @@
   }
 </script>
 
-<style scoped>
-
+<style lang="scss">
+  .add-order {
+    .el-textarea__inner {
+      height: 150px;
+    }
+  }
 </style>

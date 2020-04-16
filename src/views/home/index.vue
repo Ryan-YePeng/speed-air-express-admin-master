@@ -47,7 +47,7 @@
   .home {
     width: 100%;
     height: 100%;
-    background: url('../../assets/logisticsBG.jpg') no-repeat bottom;
+    background: url('../../assets/logisticsBG.jpg') no-repeat center;
     background-size: cover;
 
     .container {
