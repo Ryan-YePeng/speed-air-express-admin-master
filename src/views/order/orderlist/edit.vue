@@ -461,6 +461,7 @@
             this.$msgBox('确认提交？').then(() => {
               let data = {...this.form};
               data.i = 0;
+              data.string = this.number;
               editOrderApi(data).then(() => {
                 this.$emit('update');
                 this.cancel()
